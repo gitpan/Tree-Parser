@@ -1,5 +1,10 @@
 Revision history for Perl extension Tree::Parser.
 
+0.05 Tues May 18th 2004
+    - Forgot to update the dependecies (Array::Iterator
+      and Tree::Simple) to their latest versions, which 
+      is nessecary for the new parse filter.
+
 0.04 Mon May 17th 2004
     - Added new default filter to parse dot seperated
       levels, see the documentation for it.
