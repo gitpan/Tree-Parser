@@ -4,7 +4,7 @@ package Tree::Parser;
 use strict;
 use warnings;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 use Tree::Simple;
 use Array::Iterator;
@@ -148,6 +148,53 @@ sub prepareInput {
     }
 }
 
+## space indented filters
+## ----------------------------------------------
+{
+
+    my @default_level_identifiers = (1 .. 100);
+
+    my $make_DOT_SEPERATED_LEVEL_PARSE = sub {
+        my (@level_identifiers) = @_;
+        @level_identifiers = @default_level_identifiers unless @level_identifiers;
+        return sub {
+            my ($line_iterator) = @_;
+            my $line = $line_iterator->next();
+            my $level_identifiers_reg_ex = join "|" => @level_identifiers;
+            my ($numbers, $value) = $line =~ /([($level_identifiers_reg_ex)\.]*)\s(.*)/;
+            # now split the numbers
+            my @numbers = split /\./ => $numbers;
+            # we know the depth of the tree by home many
+            # numbers are present, and we assume we were
+            # given them in sequential order anyway
+            my $depth = $#numbers;
+            return ($depth, $value);
+        };
+    };
+    
+    my $make_DOT_SEPERATED_LEVEL_DEPARSE = sub {
+        my (@level_identifiers) = @_;
+        @level_identifiers = @default_level_identifiers unless @level_identifiers;
+        return sub {
+            my ($tree) = @_;
+            my @numbers = $level_identifiers[$tree->getIndex()];
+            my $current_tree = $tree->getParent();
+            until ($current_tree->isRoot()) {
+                unshift @numbers => $level_identifiers[$current_tree->getIndex()];
+                $current_tree = $current_tree->getParent();
+            }
+            return ((join "." => @numbers) . " " . $tree->getNodeValue()); 
+        };
+    };    
+    
+    sub useDotSeperatedLevelFilters {
+        my ($self, @level_identifiers) = @_;
+        $self->{parse_filter} = $make_DOT_SEPERATED_LEVEL_PARSE->(@level_identifiers);
+        $self->{deparse_filter} = $make_DOT_SEPERATED_LEVEL_DEPARSE->(@level_identifiers);
+    }    
+
+}
+
 ## manual filters
 ## ----------------------------------------------
 # a filter is a subroutine reference 
@@ -288,6 +335,9 @@ Tree::Parser - Module to parse formatted files into tree structures
   # use the built in space indent filters
   $tp->useSpaceIndentedFilters(4); 
   
+  # use the built in dot-seperated numbers filters
+  $tp->useDotSeperatedLevelFilters()
+  
   # create your own filter
   $tp->setParseFilter(sub {
       my ($line_iterator) = @_;
@@ -378,9 +428,59 @@ It then returns an B<Array::Iterator> object ready for the parser.
 
 This will set the parse and deparse filters to handle tab indented content. This is for true tabs C<\t> only. The parse and deparse filters this uses are compatible with one another so round-triping is possible.
 
+Example:
+
+  1.0
+      1.1
+      1.2
+          1.2.1
+  2.0
+      2.1
+  3.0
+      3.1
+          3.1.1
+
 =item B<useSpaceIndentedFilters ($num_spaces)>
 
 This will set the parse and deparse filters to handle space indented content. The optional C<$num_spaces> argument allows you to specify how many spaces are to be treated as a single indent, if this argument is not specified it will default to a 4 space indent. The parse and deparse filters this uses are compatible with one another so round-triping is possible.
+
+Example:
+
+  1.0
+    1.1
+    1.2
+      1.2.1
+  2.0
+    2.1
+  3.0
+    3.1
+      3.1.1
+
+=item B<useDotSeperatedLevelFilters (@level_identifiers)>
+
+This will set the parse and deparse filters to handle trees which are described in the following format:
+
+  1 First Child
+  1.1 First Grandchild
+  1.2 Second Grandchild
+  1.2.1 First Child of the Second Grandchild
+  1.3 Third Grandchild
+  2 Second Child 
+
+There must be at least one space seperating the level identifier from the level name, all other spaces will be considered part of the name itself.
+
+The parse and deparse filters this uses are compatible with one another so round-triping is possible.
+
+The labels used are those specified in the C<@level_identifiers> argument. The above code uses the default level identifiers (C<1 .. 100>). But by passing the following as a set of level identifiers: C<'a' .. 'z'>, you can successfully parse a format like this:
+
+  a First Child
+  a.a First Grandchild
+  a.b Second Grandchild
+  a.b.a First Child of the Second Grandchild
+  a.c Third Grandchild
+  b Second Child
+
+Currently, you are restricted to only one set of level identifiers. Future plans include allowing each depth to have its own set of identifiers, therefore allowing formats like this: C<1.a> or other such variations (see L<TO DO> section for more info).
 
 =item B<setParseFilter ($filter)>
 
@@ -463,6 +563,25 @@ This is where all the deparsing work is done. As with the C<_parse> method, if y
 
 =back
 
+=head1 TO DO
+
+=over 4
+
+=item Enhance the Dot Seperated Level filter
+
+I would like to enhance this built in filter to handle multi-level level-identifiers, basically allowing formats like this:
+
+  1 First Child
+  1.a First Grandchild
+  1.b Second Grandchild
+  1.b.I First Child of the Second Grandchild
+  1.b.II Second Child of the Second Grandchild
+  1.c Third Grandchild
+  2 Second Child
+
+
+=back
+
 =head1 BUGS
 
 None that I am aware of. Of course, if you find a bug, let me know, and I will be sure to fix it. This module, in an earlier form, has been and is being used in production for approx. 1 year now without incident. This version has been improved and the test suite added.
@@ -471,17 +590,18 @@ None that I am aware of. Of course, if you find a bug, let me know, and I will b
 
 I use B<Devel::Cover> to test the code coverage of my tests, below is the B<Devel::Cover> report on this module's test suite.
 
- ------------------------------------ ------ ------ ------ ------ ------ ------ ------
- File                                   stmt branch   cond    sub    pod   time  total
- ------------------------------------ ------ ------ ------ ------ ------ ------ ------
- /Tree/Parser.pm                       100.0   89.6   83.3  100.0  100.0   55.3   95.8
- t/10_Tree_Parser_test.t               100.0    n/a    n/a  100.0    n/a    8.9  100.0
- t/20_Tree_Parser_inputs_test.t        100.0    n/a    n/a  100.0    n/a   19.9  100.0
- t/30_Tree_Parser_errors_test.t        100.0    n/a    n/a  100.0    n/a   14.3  100.0
- t/40_Tree_Parser_parse_errors_test.t  100.0    n/a    n/a  100.0    n/a    1.6  100.0
- ------------------------------------ ------ ------ ------ ------ ------ ------ ------
- Total                                 100.0   89.6   83.3  100.0  100.0  100.0   98.1
- ------------------------------------ ------ ------ ------ ------ ------ ------ ------
+ --------------------------------------- ------ ------ ------ ------ ------ ------ ------
+ File                                      stmt branch   cond    sub    pod   time  total
+ --------------------------------------- ------ ------ ------ ------ ------ ------ ------
+ /Tree/Parser.pm                          100.0   89.6   83.3  100.0  100.0   31.7   95.9
+ t/10_Tree_Parser_test.t                  100.0    n/a    n/a  100.0    n/a   10.9  100.0
+ t/20_Tree_Parser_inputs_test.t           100.0    n/a    n/a  100.0    n/a   24.6  100.0
+ t/30_Tree_Parser_errors_test.t           100.0    n/a    n/a  100.0    n/a   18.8  100.0
+ t/40_Tree_Parser_parse_errors_test.t     100.0    n/a    n/a  100.0    n/a    4.1  100.0
+ t/50_Tree_Parser_default_filters_test.t  100.0    n/a    n/a  100.0    n/a    9.9  100.0
+ --------------------------------------- ------ ------ ------ ------ ------ ------ ------
+ Total                                    100.0   89.6   83.3  100.0  100.0  100.0   98.3
+ --------------------------------------- ------ ------ ------ ------ ------ ------ ------
 
 =head1 SEE ALSO
 
