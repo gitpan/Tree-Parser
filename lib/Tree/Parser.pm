@@ -4,7 +4,7 @@ package Tree::Parser;
 use strict;
 use warnings;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use Scalar::Util qw(blessed);
 
@@ -390,27 +390,39 @@ sub _parse {
 			# otherwise we throw and exception
 			) || die "Parse Error : Incorrect Value for depth (" . ((defined $depth) ? $depth : "undef") . ")";
 		# and node is fine as long as it is defined	
-		(defined($node)) || die "Parse Error : node is not defined";	
+		(defined($node)) || die "Parse Error : node is not defined";
+        
+        my $new_tree;
+        # if we get back a tree of the same type, 
+        # or even of a different type, but still
+        # a Tree::Simple, then we use that ....
+        if (blessed($node) && ($node->isa($tree_type) || $node->isa('Tree::Simple'))) {
+            $new_tree = $node;
+        }
+        # othewise, we assume it is intended to be
+        # the node of the tree
+        else {
+            $new_tree = $tree_type->new($node);
+        }
+            	
 		if ($current_tree->isRoot()) {
-			my $new_tree = $tree_type->new($node, $current_tree);
+			$current_tree->addChild($new_tree);
 			$current_tree = $new_tree;
 			next;
 		}
 		my $tree_depth = $current_tree->getDepth();		
 		if ($depth == $tree_depth) {	
-			my $new_tree = $tree_type->new($node);
 			$current_tree->addSibling($new_tree);
 			$current_tree = $new_tree;
 		} 
 		elsif ($depth > $tree_depth) {
 			(($depth - $tree_depth) <= 1) 
                 || die "Parse Error : the difference between the depth ($depth) and the tree depth ($tree_depth) is too much (" . ($depth - $tree_depth) . ") at '$node'";
-			my $new_tree = $tree_type->new($node, $current_tree);
+			$current_tree->addChild($new_tree);
 			$current_tree = $new_tree;
 		} 
 		elsif ($depth < $tree_depth) {
 			$current_tree = $current_tree->getParent() while ($depth < $current_tree->getDepth());
-			my $new_tree = $tree_type->new($node);
 			$current_tree->addSibling($new_tree);
 			$current_tree = $new_tree;	
 		}		
@@ -609,9 +621,21 @@ A parse filter is a subroutine reference which is used to process each element i
 
 =over 4
 
-=item * I<the depth of the node>
+=item I<the depth of the node within the tree>
 
-=item * I<the value of the node (which can be anything; string, array ref, object instanace, you name it)>
+=item Followed by either of the following items:
+
+=over 4
+
+=item I<the value of the node>
+
+This value will be used as the node value when constructing the new tree. This can basically be any scalar value.
+
+=item I<an instance of either a Tree::Simple object, or some derivative of Tree::Simple>
+
+If you need to perform special operations on the tree instance before it get's added to the larger hierarchy, then you can construct it within the parse filter and return it. An example of why you might want to do this would be if you wanted to set the UID of the tree instance from something in the parse filter.
+
+=back
 
 =back
 
@@ -718,13 +742,13 @@ None that I am aware of. Of course, if you find a bug, let me know, and I will b
 
 I use B<Devel::Cover> to test the code coverage of my tests, below is the B<Devel::Cover> report on this module's test suite.
 
- ------------------------ ------ ------ ------ ------ ------ ------ ------
- File                       stmt branch   cond    sub    pod   time  total
- ------------------------ ------ ------ ------ ------ ------ ------ ------
- Tree/Parser.pm            100.0   85.7   88.5  100.0  100.0  100.0   95.2
- ------------------------ ------ ------ ------ ------ ------ ------ ------
- Total                     100.0   85.7   88.5  100.0  100.0  100.0   95.2
- ------------------------ ------ ------ ------ ------ ------ ------ ------
+ ---------------------------- ------ ------ ------ ------ ------ ------ ------
+ File                           stmt branch   cond    sub    pod   time  total
+ ---------------------------- ------ ------ ------ ------ ------ ------ ------
+ Tree/Parser.pm                100.0   86.2   81.2  100.0  100.0  100.0   94.2
+ ---------------------------- ------ ------ ------ ------ ------ ------ ------
+ Total                         100.0   86.2   81.2  100.0  100.0  100.0   94.2
+ ---------------------------- ------ ------ ------ ------ ------ ------ ------
 
 =head1 SEE ALSO
 

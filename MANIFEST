@@ -8,6 +8,7 @@ t/20_Tree_Parser_inputs_test.t
 t/30_Tree_Parser_errors_test.t
 t/40_Tree_Parser_parse_errors_test.t
 t/50_Tree_Parser_default_filters_test.t
+t/60_Tree_Parser_tree_filter_test.t
 t/sample.tree
 t/pod.t
 t/pod_coverage.t

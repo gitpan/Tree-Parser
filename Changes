@@ -1,5 +1,11 @@
 Revision history for Perl extension Tree::Parser.
 
+0.09 Mon Jan 10, 2004
+    - added the option of returning a Tree::Simple
+      object, instead of just the node value from a
+      parse filter. 
+        - added tests and docs for this
+
 0.08 Thurs Nov 18 2004
     - now using Scalar::Util::blessed() instead of 
       the convoluted UNIVERSAL::isa() stuff. 
