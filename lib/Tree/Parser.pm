@@ -4,7 +4,7 @@ package Tree::Parser;
 use strict;
 use warnings;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 use Tree::Simple;
 use Array::Iterator;
@@ -25,6 +25,7 @@ sub _init {
     # make slots for our 2 filters
     $self->{parse_filter} = undef;
     $self->{deparse_filter} = undef;
+    $self->{deparse_filter_cleanup} = undef;
     # check the input and decide what to 
     # do with it
     if ($input) {
@@ -83,9 +84,18 @@ sub prepareInput {
 		return Array::Iterator->new(@lines);
 	}
 	else {
-		my @lines = split /\n/ => $input;
-		(scalar(@lines) > 1) 
-            || die "Incorrect Object Type : input looked like a single string, but only a single line ($input) unable to parse input into line (" . (join "==" => @lines) . ")";
+        my @lines;
+        if ($input =~ /\n/) {
+            @lines = split /\n/ => $input;
+            (scalar(@lines) > 1) 
+                || die "Incorrect Object Type : input looked like a single string, but only a single line ($input) unable to parse input into line (" . (join "==" => @lines) . ")";
+        }
+        elsif ($input =~ /^\(/) {
+            @lines = grep { $_ ne "" } split /(\(|\)|\s|\")/ => $input; #"
+        }
+        else {
+            die "Incorrect Object Type : input looked like a single string, but has no newlines or does not start with paren";
+        }
 		return Array::Iterator->new(@lines);		
 	}
 }
@@ -195,6 +205,93 @@ sub prepareInput {
 
 }
 
+## nested parens filters
+## ----------------------------------------------
+{
+    
+    my $make_NESTED_PARENS_PARSE = sub {
+        my @paren_stack;
+        return sub {
+            my ($line_iterator) = @_;
+            my $line = $line_iterator->next();
+            my $node = "";
+            until ($node) {
+                if ($line eq "(") {
+                    push @paren_stack => $line;
+                    last unless $line_iterator->hasNext();
+                    $line = $line_iterator->next();
+                }
+                elsif ($line eq ")") {            
+                    pop @paren_stack;
+                    last unless $line_iterator->hasNext();
+                    $line = $line_iterator->next();
+                }
+                elsif ($line eq '"') {           
+                    $line = ""; # clear the quote
+                    while ($line_iterator->hasNext()) {
+                        my $next = $line_iterator->next();
+                        last if $next eq '"';
+                        $line .= $next;
+                    }
+                }  
+                elsif ($line eq ' ') {
+                    # discard misc whitespace
+                    $line = $line_iterator->next();
+                    next;
+                }                               
+                else {              
+                    $node = $line;
+                }
+            }
+            my $depth = $#paren_stack;
+            $depth = 0 if $depth < 0;
+            return ($depth, $node);
+        };
+    };
+
+    # this is used in clean up as well
+    my $prev_depth;
+    my $NESTED_PARENS_DEPARSE = sub {
+        my ($tree) = @_;
+        my $output = "";
+        unless (defined($prev_depth)) { 
+            $output .= "(";
+            $prev_depth = $tree->getDepth();
+        }
+        else {
+            my $current_depth = $tree->getDepth();                        
+            if ($prev_depth == $current_depth) {
+                $output .= " ";
+            }
+            elsif ($prev_depth < $current_depth) {
+                $output .= " (";                
+            }
+            elsif ($prev_depth > $current_depth) {
+                $output .= ") ";                
+            }
+            $prev_depth = $current_depth;
+        }
+        my $current_node = $tree->getNodeValue();
+        $current_node = '"' . $current_node . '"' if $current_node =~ /\s/;
+        $output .= $current_node;
+        return $output;
+    };
+    
+    my $NESTED_PARENS_CLEANUP = sub { 
+        my $closing_parens = $prev_depth;
+        # unset this so it can be used again
+        undef $prev_depth;
+        return @_, (")" x ($closing_parens + 1)) 
+    };
+    
+    sub useNestedParensFilters {
+        my ($self) = @_;
+        $self->{parse_filter} = $make_NESTED_PARENS_PARSE->();
+        $self->{deparse_filter} = $NESTED_PARENS_DEPARSE;
+        $self->{deparse_filter_cleanup} = $NESTED_PARENS_CLEANUP;
+    }
+}
+
 ## manual filters
 ## ----------------------------------------------
 # a filter is a subroutine reference 
@@ -264,6 +361,7 @@ sub _deparse {
 		my ($tree) = @_;
 		push @lines => $self->{deparse_filter}->($tree);
 		});
+    @lines = $self->{deparse_filter_cleanup}->(@lines) if defined $self->{deparse_filter_cleanup};        
 	return wantarray ?
 				@lines
 				:
@@ -278,6 +376,10 @@ sub _parse {
     my ($i, $current_tree) = ($self->{iterator}, $self->{tree});
 	while ($i->hasNext()) {
         my ($depth, $node) = $self->{parse_filter}->($i);
+        # if we get nothing back and the iterator
+        # is exhausted, then we now it is time to 
+        # stop parsing the input.
+        last if !$depth && !$node && !$i->hasNext();
 		# depth must be defined ...
 		(defined($depth) 
 			&& 
@@ -337,7 +439,10 @@ Tree::Parser - Module to parse formatted files into tree structures
   $tp->useSpaceIndentedFilters(4); 
   
   # use the built in dot-seperated numbers filters
-  $tp->useDotSeperatedLevelFilters()
+  $tp->useDotSeperatedLevelFilters();
+  
+  # use the nested parens filter
+  $tp->useNestedParensFilters();
   
   # create your own filter
   $tp->setParseFilter(sub {
@@ -413,7 +518,7 @@ The file is opened, its contents slurped into an array, which is then used to co
 
 =item * I<a string>
 
-The string is expected to have embedded newlines, and in fact B<must> have at least one.
+The string is expected to have at least one embedded newline or be in the nested parens format.
 
 =back
 
@@ -482,6 +587,20 @@ The labels used are those specified in the C<@level_identifiers> argument. The a
   b Second Child
 
 Currently, you are restricted to only one set of level identifiers. Future plans include allowing each depth to have its own set of identifiers, therefore allowing formats like this: C<1.a> or other such variations (see L<TO DO> section for more info).
+
+=item B<useNestedParensFilters>
+
+This will set the parse and deparse filters to handle trees which are described in the following format:
+
+  (1 (1.1 1.2 (1.2.1) 1.3) 2 (2.1))
+
+The parser will count the parentheses to determine the depth of the current node. This filter can also handle double quoted strings as values as well. So this would be valid input:
+
+  (root ("tree 1" ("tree 1 1" "tree 1 2") "tree 2"))
+
+This format is currently somewhat limited in that the input must all be on one line and not contain a trailing newline. It also does not handle embedded escaped double quotes. Further refinement and improvement of this filter format is to come (and patches are always welcome).
+
+It should be noted that this filter also cannot perform a roundtrip operation where the deparsed output is the exact same as the parsed input because it does not treat whitespace as signifigant (unless it is within a double quoted string). 
 
 =item B<setParseFilter ($filter)>
 
@@ -568,6 +687,10 @@ This is where all the deparsing work is done. As with the C<_parse> method, if y
 
 =over 4
 
+=item Enhance the Nested Parens filter
+
+This filter is somewhat limited in its handling of embedded newlines as well as embedded double quotes (even if they are escaped). I would like to improve this filter more when time allows. 
+
 =item Enhance the Dot Seperated Level filter
 
 I would like to enhance this built in filter to handle multi-level level-identifiers, basically allowing formats like this:
@@ -594,18 +717,13 @@ None that I am aware of. Of course, if you find a bug, let me know, and I will b
 
 I use B<Devel::Cover> to test the code coverage of my tests, below is the B<Devel::Cover> report on this module's test suite.
 
- --------------------------------------- ------ ------ ------ ------ ------ ------ ------
- File                                      stmt branch   cond    sub    pod   time  total
- --------------------------------------- ------ ------ ------ ------ ------ ------ ------
- /Tree/Parser.pm                          100.0   89.6   83.3  100.0  100.0   31.7   95.9
- t/10_Tree_Parser_test.t                  100.0    n/a    n/a  100.0    n/a   10.9  100.0
- t/20_Tree_Parser_inputs_test.t           100.0    n/a    n/a  100.0    n/a   24.6  100.0
- t/30_Tree_Parser_errors_test.t           100.0    n/a    n/a  100.0    n/a   18.8  100.0
- t/40_Tree_Parser_parse_errors_test.t     100.0    n/a    n/a  100.0    n/a    4.1  100.0
- t/50_Tree_Parser_default_filters_test.t  100.0    n/a    n/a  100.0    n/a    9.9  100.0
- --------------------------------------- ------ ------ ------ ------ ------ ------ ------
- Total                                    100.0   89.6   83.3  100.0  100.0  100.0   98.3
- --------------------------------------- ------ ------ ------ ------ ------ ------ ------
+ ------------------------ ------ ------ ------ ------ ------ ------ ------
+ File                       stmt branch   cond    sub    pod   time  total
+ ------------------------ ------ ------ ------ ------ ------ ------ ------
+ Tree/Parser.pm            100.0   85.7   91.3  100.0  100.0  100.0   95.6
+ ------------------------ ------ ------ ------ ------ ------ ------ ------
+ Total                     100.0   85.7   91.3  100.0  100.0  100.0   95.6
+ ------------------------ ------ ------ ------ ------ ------ ------ ------
 
 =head1 SEE ALSO
 

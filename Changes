@@ -1,5 +1,10 @@
 Revision history for Perl extension Tree::Parser.
 
+0.07 Tues Aug 31 2004
+    - added the nested parens default filter.
+        - added tests for this 
+        - added documentation for this
+
 0.06 Tues May 18 2004
     - some interal tweaks to facilitate using Tree::Simple
       subclasses more easily, and added some documentation

@@ -81,10 +81,10 @@ isa_ok($tree, "Tree::Simple");
         push @accumulation, $tree->getNodeValue();
     });
     
-    ok(eq_array(
-            [ @accumulation ], 
-            [ qw/1.0 1.1 1.2 1.3 2.0 2.1 2.1.1 2.2 3.0/ ]
-        ), '... parse test failed');
+    is_deeply(
+        [ @accumulation ], 
+        [ qw/1.0 1.1 1.2 1.3 2.0 2.1 2.1.1 2.2 3.0/ ]
+        , '... parsed correctly');
 }
 
 # using setInput to set an array of lines
@@ -106,10 +106,10 @@ isa_ok($tree, "Tree::Simple");
         push @accumulation, $tree->getNodeValue();
     });
     
-    ok(eq_array(
-            [ @accumulation ], 
-            [ qw/1.0 1.1 1.2 1.3 2.0 2.1 2.1.1 2.2 3.0/ ]
-        ), '... parse test failed');
+    is_deeply(
+        [ @accumulation ], 
+        [ qw/1.0 1.1 1.2 1.3 2.0 2.1 2.1.1 2.2 3.0/ ]
+        , '... parsed correctly');
 }
 
 # using new to set an Array::Iterator
@@ -129,10 +129,10 @@ isa_ok($tree, "Tree::Simple");
         push @accumulation, $tree->getNodeValue();
     });
     
-    ok(eq_array(
-            [ @accumulation ], 
-            [ qw/1.0 1.1 1.2 1.3 2.0 2.1 2.1.1 2.2 3.0/ ]
-        ), '... parse test failed');
+    is_deeply(
+        [ @accumulation ], 
+        [ qw/1.0 1.1 1.2 1.3 2.0 2.1 2.1.1 2.2 3.0/ ]
+        , '... parsed correctly');
 }
 
 # using new to set an Array::Iterator
@@ -152,9 +152,9 @@ isa_ok($tree, "Tree::Simple");
         push @accumulation, $tree->getNodeValue();
     });
     
-    ok(eq_array(
-            [ @accumulation ], 
-            [ qw/1.0 1.1 1.1.1 1.1.2 1.2 1.2.1 1.2.2 2.0 2.1 2.2 3.0 3.1 3.1.1 3.2 3.3 3.3.1/ ]
-        ), '... parse test failed');
+    is_deeply(
+        [ @accumulation ], 
+        [ qw/1.0 1.1 1.1.1 1.1.2 1.2 1.2.1 1.2.2 2.0 2.1 2.2 3.0 3.1 3.1.1 3.2 3.3 3.3.1/ ]
+        , '... parsed correctly');
 
 }

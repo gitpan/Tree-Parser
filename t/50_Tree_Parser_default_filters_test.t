@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 13;
+use Test::More tests => 19;
 
 BEGIN { 
     use_ok('Tree::Parser') 
@@ -108,4 +108,46 @@ TREE_STRING
     is($output, $tree_string, '... round trip successful');
 }
 
+# testing the new parens filters
+{
+    my $tp = Tree::Parser->new("(1.0 (1.1 1.2 1.3) 2.0 (2.1 (2.1.1) 2.2) 3.0 (3.1))");
+    isa_ok($tp, "Tree::Parser");
+    
+    $tp->useNestedParensFilters();     
+    
+    my $tree = $tp->parse();
+    isa_ok($tree, "Tree::Simple");
+    
+    my @accumulation;
+    $tree->traverse(sub {
+        my ($tree) = @_;
+        push @accumulation, $tree->getNodeValue();
+    });
+    
+    is_deeply(
+        [ @accumulation ], 
+        [ qw/1.0 1.1 1.2 1.3 2.0 2.1 2.1.1 2.2 3.0 3.1/ ]
+        , '... parsed correctly');
+}
+
+{
+    my $tp = Tree::Parser->new('(root ("tree 1" "tree 2" ("tree 2 1")))');
+    isa_ok($tp, "Tree::Parser");
+    
+    $tp->useNestedParensFilters();     
+    
+    my $tree = $tp->parse();
+    isa_ok($tree, "Tree::Simple");
+    
+    my @accumulation;
+    $tree->traverse(sub {
+        my ($tree) = @_;
+        push @accumulation, $tree->getNodeValue();
+    });
+    
+    is_deeply(
+        [ @accumulation ], 
+        [ "root", "tree 1", "tree 2", "tree 2 1" ]
+        , '... parsed correctly');
+}
 
