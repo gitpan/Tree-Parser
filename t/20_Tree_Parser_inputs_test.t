@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 17;
+use Test::More tests => 16;
 
 BEGIN { 
     use_ok('Tree::Parser') 
@@ -12,7 +12,17 @@ BEGIN {
 use Tree::Simple;
 use Array::Iterator;
 
-my $tree_string = "1.0\n\t1.1\n\t1.2\n\t1.3\n2.0\n\t2.1\n\t\t2.1.1\n\t2.2\n3.0";
+my $tree_string = <<TREE_STRING;
+1.0
+  1.1
+  1.2
+  1.3
+2.0
+  2.1
+    2.1.1
+  2.2
+3.0
+TREE_STRING
 
 chomp $tree_string;
 
@@ -36,14 +46,6 @@ my $tree = Tree::Simple->new(Tree::Simple->ROOT)
             );	
 
 isa_ok($tree, "Tree::Simple");
-
-my $parse_filter = sub {
-    my ($line_iterator) = @_;
-    my $line = $line_iterator->next();
-    my ($tabs, $node) = $line =~ /(\t*)(.*)/;
-    my $depth = length $tabs;
-    return ($depth, $node);
-};
  
 # tree as input 
 {                       
@@ -51,10 +53,7 @@ my $parse_filter = sub {
     
     isa_ok($tp, "Tree::Parser");
     
-    $tp->setDeparseFilter(sub { 
-        my ($tree) = @_;
-        return ("\t" x $tree->getDepth()) . $tree->getNodeValue();
-    });
+    $tp->useSpaceIndentedFilters(2);
     
     my @deparsed_string = $tp->deparse();
     
@@ -68,7 +67,7 @@ my $parse_filter = sub {
     
     $tp->setInput($tree_string);
     
-    $tp->setParseFilter($parse_filter);    
+    $tp->useSpaceIndentedFilters(2);   
     
     $tp->parse();
     
@@ -95,7 +94,7 @@ my $parse_filter = sub {
     
     $tp->setInput([ split /\n/ => $tree_string ]);
     
-    $tp->setParseFilter($parse_filter);    
+    $tp->useSpaceIndentedFilters(2);   
     
     my $tree = $tp->parse();
 
@@ -118,7 +117,7 @@ my $parse_filter = sub {
     my $tp = Tree::Parser->new(Array::Iterator->new( split /\n/ => $tree_string ));
     isa_ok($tp, "Tree::Parser");
     
-    $tp->setParseFilter($parse_filter);    
+    $tp->useSpaceIndentedFilters(2);  
     
     my $tree = $tp->parse();
 
@@ -141,13 +140,7 @@ my $parse_filter = sub {
     my $tp = Tree::Parser->new("t/sample.tree");
     isa_ok($tp, "Tree::Parser");
     
-    $tp->setParseFilter(sub {
-        my ($line_iterator) = @_;
-        my $line = $line_iterator->next();
-        my ($tabs, $node) = $line =~ /(\s*)(.*)/;
-        my $depth = length $tabs;
-        return ($depth, $node);
-    });   
+    $tp->useSpaceIndentedFilters(1);   
     
     my $tree = $tp->parse();
 
@@ -165,16 +158,3 @@ my $parse_filter = sub {
         ), '... parse test failed');
 
 }
-
-{
-    eval {
-        my $tp = Tree::Parser->new(bless({}, "Fail"));
-    };
-    if ($@) {
-        like($@, qr/Incorrect Object Type/, '.. be sure we have the right exception');
-    }
-    else {
-        fail('... this should have thrown an exception');
-    }
-}
-

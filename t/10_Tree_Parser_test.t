@@ -35,18 +35,7 @@ can_ok($tp, 'setDeparseFilter');
 can_ok($tp, 'parse');
 can_ok($tp, 'deparse');
 
-$tp->setParseFilter(sub {
-    my ($line_iterator) = @_;
-    my $line = $line_iterator->next();
-    my ($tabs, $node) = $line =~ /(\t*)(.*)/;
-    my $depth = length $tabs;
-    return ($depth, $node);
-});
-
-$tp->setDeparseFilter(sub { 
-    my ($tree) = @_;
-    return ("\t" x $tree->getDepth()) . $tree->getNodeValue();
-});
+$tp->useTabIndentedFilters();
 
 my $tree = $tp->parse();
 

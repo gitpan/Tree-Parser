@@ -4,7 +4,7 @@ package Tree::Parser;
 use strict;
 use warnings;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use Tree::Simple;
 use Array::Iterator;
@@ -90,8 +90,66 @@ sub prepareInput {
 	}
 }
 
+## ----------------------------------------------------------------------------
 ## Filters
+## ----------------------------------------------------------------------------
 
+## tab indented filters
+## ----------------------------------------------
+{
+    my $TAB_INDENTED_PARSE = sub ($) {
+        my ($line_iterator) = @_;
+        my $line = $line_iterator->next();
+        my ($tabs, $node) = $line =~ /(\t*)(.*)/;
+        my $depth = length $tabs;
+        return ($depth, $node);
+    };
+    
+    my $TAB_INDENTED_DEPARSE = sub ($) { 
+        my ($tree) = @_;
+        return ("\t" x $tree->getDepth()) . $tree->getNodeValue();
+    };
+    
+    sub useTabIndentedFilters {
+        my ($self) = @_;
+        $self->{parse_filter} = $TAB_INDENTED_PARSE;
+        $self->{deparse_filter} = $TAB_INDENTED_DEPARSE;
+    }
+}
+
+## space indented filters
+## ----------------------------------------------
+{
+    my $make_SPACE_INDENTED_PARSE = sub {
+        my ($num_spaces) = @_;
+        return sub ($) {
+            my ($line_iterator) = @_;
+            my $line = $line_iterator->next();
+            my ($spaces, $node) = $line =~ /(\s*)(.*)/;
+            my $depth = (length($spaces) / $num_spaces) ;
+            return ($depth, $node);
+            };
+    };
+    
+    my $make_SPACE_INDENTED_DEPARSE = sub {
+        my ($num_spaces) = @_;
+        my $spaces = (" " x $num_spaces);
+        return sub ($) {
+                my ($tree) = @_;
+                return ($spaces x $tree->getDepth()) . $tree->getNodeValue();
+            };
+    };
+    
+    sub useSpaceIndentedFilters {
+        my ($self, $num_spaces) = @_;
+        $num_spaces ||= 4;
+        $self->{parse_filter} = $make_SPACE_INDENTED_PARSE->($num_spaces);
+        $self->{deparse_filter} = $make_SPACE_INDENTED_DEPARSE->($num_spaces);
+    }
+}
+
+## manual filters
+## ----------------------------------------------
 # a filter is a subroutine reference 
 # which gets executed upon each line
 # and it must return two values:
@@ -117,6 +175,8 @@ sub setDeparseFilter {
         || die "Insufficient Arguments : parse filter must be a code reference";
 	$self->{deparse_filter} = $filter;
 }
+
+## ----------------------------------------------------------------------------
 
 sub getTree {
 	my ($self) = @_;
@@ -176,7 +236,7 @@ sub _parse {
 			# and a digit (int or float)
 			($depth =~ /^\d+(\.\d*)?$/o) 
 			# otherwise we throw and exception
-			) || die "Parse Error : Incorrect Value for depth ($depth)";
+			) || die "Parse Error : Incorrect Value for depth (" . ((defined $depth) ? $depth : "undef") . ")";
 		# and node is fine as long as it is defined	
 		(defined($node)) || die "Parse Error : node is not defined";	
 		if ($current_tree->isRoot()) {
@@ -222,22 +282,31 @@ Tree::Parser - Module to parse formatted files into tree structures
   # create a new parser object with some input
   my $tp = Tree::Parser->new($input);
   
-  # set a parse filter
+  # use the built in tab indent filters
+  $tp->useTabIndentedFilters();
+  
+  # use the built in space indent filters
+  $tp->useSpaceIndentedFilters(4); 
+  
+  # create your own filter
   $tp->setParseFilter(sub {
       my ($line_iterator) = @_;
       my $line = $line_iterator->next();
-      my ($tabs, $node) = $line =~ /(\t*)(.*)/;
+      my ($id, $tabs, $desc) = $line =~ /(\d+)(\t*)(.*)/;
       my $depth = length $tabs;
-      return ($depth, $node);
+      return ($depth, { id => $id, desc => $desc } );
   });
   
   # parse our input and get back a tree
   my $tree = $tp->parse();
   
-  # set our deparse filter
+  # create your own deparse filter
+  # (which is in the inverse of our
+  # custom filter above)
   $tp->setDeparseFilter(sub { 
       my ($tree) = @_;
-      return ("\t" x $tree->getDepth()) . $tree->getNodeValue();
+      my $info = $tree->getNodeValue();
+      return ($info->{id} . ("\t" x $tree->getDepth()) . $info->{desc});
   });
   
   # deparse our tree and get back a string
@@ -279,19 +348,19 @@ The C<prepareInput> method is used to pre-process certain types of C<$input>. It
 
 =over 4
 
-=item I<an B<Array::Iterator> object>
+=item * I<an B<Array::Iterator> object>
 
 This just gets passed on through.
 
-=item I<an array reference containing the lines to be parsed>
+=item * I<an array reference containing the lines to be parsed>
 
 This type of argument is used to construct an B<Array::Iterator> instance.
 
-=item I<a filename which ends in C<.tree>>
+=item * I<a filename which ends in C<.tree>>
 
 The file is opened, its contents slurped into an array, which is then used to construct an B<Array::Iterator> instance.
 
-=item I<a string>
+=item * I<a string>
 
 The string is expected to have embedded newlines, and in fact B<must> have at least, more than one as a single node tree does not make much sense.
 
@@ -305,15 +374,23 @@ It then returns an B<Array::Iterator> object ready for the parser.
 
 =over 5
 
+=item B<useTabIndentedFilters>
+
+This will set the parse and deparse filters to handle tab indented content. This is for true tabs C<\t> only. The parse and deparse filters this uses are compatible with one another so round-triping is possible.
+
+=item B<useSpaceIndentedFilters ($num_spaces)>
+
+This will set the parse and deparse filters to handle space indented content. The optional C<$num_spaces> argument allows you to specify how many spaces are to be treated as a single indent, if this argument is not specified it will default to a 4 space indent. The parse and deparse filters this uses are compatible with one another so round-triping is possible.
+
 =item B<setParseFilter ($filter)>
 
 A parse filter is a subroutine reference which is used to process each element in the input. As the main parse loop runs, it calls this filter routine and passes it the B<Array::Iterator> instance which represents the input. To get the next element/line/token in the iterator, the filter must call C<next>, the element should then be processed by the filter. A filter can if it wants advance the iterator further by calling C<next> more than once if nessecary, there are no restrictions as to what it can do. However, the filter B<must> return these two values in order to correctly construct the tree:
 
 =over 4
 
-=item I<the depth of the node>
+=item * I<the depth of the node>
 
-=item I<the value of the node (which can be anything; string, array ref, object instanace, you name it)>
+=item * I<the value of the node (which can be anything; string, array ref, object instanace, you name it)>
 
 =back
 
@@ -386,12 +463,6 @@ This is where all the deparsing work is done. As with the C<_parse> method, if y
 
 =back
 
-=head1 TO DO
-
-Make some default filters,.. turn them into constants which can be used.
-
-Make a way to define the "indent" instead of defining a filter.
-
 =head1 BUGS
 
 None that I am aware of. Of course, if you find a bug, let me know, and I will be sure to fix it. This module, in an earlier/simpler form, has been and is being used in production for approx. 1 year now without incident. This version has been improved and the test suite added.
@@ -400,18 +471,43 @@ None that I am aware of. Of course, if you find a bug, let me know, and I will b
 
 I use B<Devel::Cover> to test the code coverage of my tests, below is the B<Devel::Cover> report on this module's test suite.
 
- ------------------------------ ------ ------ ------ ------ ------ ------ ------
- File                             stmt branch   cond    sub    pod   time  total
- ------------------------------ ------ ------ ------ ------ ------ ------ ------
- /Tree/Parser.pm                 100.0   82.6   73.3  100.0  100.0   25.6   93.2
- t/10_Tree_Parser_test.t         100.0    n/a    n/a  100.0    n/a   19.5  100.0
- t/20_Tree_Parser_inputs_test.t   98.9   50.0    n/a  100.0    n/a   35.8   98.1
- t/30_Tree_Parser_errors_test.t   95.5    n/a    n/a   90.0    n/a   19.1   93.8
- ------------------------------ ------ ------ ------ ------ ------ ------ ------
- Total                            98.9   81.2   73.3   96.4  100.0  100.0   95.4
- ------------------------------ ------ ------ ------ ------ ------ ------ ------
+ ------------------------------------ ------ ------ ------ ------ ------ ------ ------
+ File                                   stmt branch   cond    sub    pod   time  total
+ ------------------------------------ ------ ------ ------ ------ ------ ------ ------
+ /Tree/Parser.pm                       100.0   89.6   83.3  100.0  100.0   55.3   95.8
+ t/10_Tree_Parser_test.t               100.0    n/a    n/a  100.0    n/a    8.9  100.0
+ t/20_Tree_Parser_inputs_test.t        100.0    n/a    n/a  100.0    n/a   19.9  100.0
+ t/30_Tree_Parser_errors_test.t        100.0    n/a    n/a  100.0    n/a   14.3  100.0
+ t/40_Tree_Parser_parse_errors_test.t  100.0    n/a    n/a  100.0    n/a    1.6  100.0
+ ------------------------------------ ------ ------ ------ ------ ------ ------ ------
+ Total                                 100.0   89.6   83.3  100.0  100.0  100.0   98.1
+ ------------------------------------ ------ ------ ------ ------ ------ ------ ------
 
 =head1 SEE ALSO
+
+This module is not an attempt at a general purpose parser by any stretch of the imagination. It is basically a very flexible special purpose parser, it only builds Tree::Simple heirarchies, but your parse filters can be as complex as nessecary. If this is not what you are looking for, then you might want to consider one of the following modules:
+
+=over 4
+
+=item B<Parse::RecDescent>
+
+This is a general purpose Recursive Descent parser generator written by Damian Conway. If your parsing needs lean towards the more complex, this is good module for you. Recursive Descent parsing is known to be slower than other parsing styles, but it tends to be easier to write grammers for, so there is a trade off. If speed is a concern, then you may just want to skip perl and go straight to C and use C<yacc>.
+
+=item B<Parse::Yapp>
+
+As an alternative to Recursive Descent parsing, you can do LALR parsing. It is faster and does not have some of the well known (and avoidable) problems of Recursive Descent parsing. I have never actually used this module, but I have heard good things about it. 
+
+=item B<Parse::FixedLength>
+
+If all you really need to do is process a file with fixed length fields in it, you can use this module.
+
+=item B<Parse::Tokens>
+
+This class will help you parse text with embedded tokens in it. I am not very familiar with this module, but it looks interesting.
+
+=back
+
+There are also a number of specific parsers out here, such as B<HTML::Parser> and B<XML::Parser>, which do one thing and do it well. If you are looking to parse HTML or XML, don't use my module, use these ones, it just makes sense. Use the right tool for the job basically.
 
 =head1 DEPENDENCIES
 

@@ -6,4 +6,5 @@ lib/Tree/Parser.pm
 t/10_Tree_Parser_test.t
 t/20_Tree_Parser_inputs_test.t
 t/30_Tree_Parser_errors_test.t
+t/40_Tree_Parser_parse_errors_test.t
 t/sample.tree

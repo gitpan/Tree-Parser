@@ -3,14 +3,23 @@
 use strict;
 use warnings;
 
-use Test::More tests => 14;
+use Test::More tests => 16;
 use Test::Exception;
 
 BEGIN { 
     use_ok('Tree::Parser') 
 }
 
+my $BAD_SUB = sub { 1 };
+ok($BAD_SUB->());
+
 my $tp = Tree::Parser->new();
+
+# constructor errors
+
+throws_ok {
+    my $tp = Tree::Parser->new(bless({}, "Fail"));
+} qr/Incorrect Object Type/, '.. be sure we have the right exception';
 
 # input errors
 
@@ -46,7 +55,7 @@ throws_ok {
     $tp->parse();
 } qr/Parse Error \: No parse filter is specified to parse with/, '... this should die';
 
-$tp->setParseFilter(sub { 1 });
+$tp->setParseFilter($BAD_SUB);
 
 throws_ok {
     $tp->parse();
@@ -73,7 +82,7 @@ throws_ok {
     $tp->deparse();
 } qr/Parse Error \: no deparse filter is specified/, '... this should die';
 
-$tp->setDeparseFilter(sub { 1 });
+$tp->setDeparseFilter($BAD_SUB);
 
 throws_ok {
     $tp->deparse();
