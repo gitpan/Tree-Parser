@@ -48,5 +48,5 @@ $tp->useSpaceIndentedFilters();
 
 throws_ok {
     $tp->parse();
-} qr/^Parse Error \: the difference between the depth and the tree depth is too much/, '... this should fail';
+} qr/^Parse Error \:/, '... this should fail';
 

@@ -8,6 +8,7 @@ WriteMakefile(
             "Test::More"      => 0.47,
             "Test::Exception" => 0.15,
             "Array::Iterator" => 0.04,
-            "Tree::Simple"    => 1.03
+            "Tree::Simple"    => 1.03,
+            "Scalar::Util"    => 1.10
     }, # e.g., Module::Name => 1.1
 );

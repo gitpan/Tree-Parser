@@ -4,7 +4,9 @@ package Tree::Parser;
 use strict;
 use warnings;
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
+
+use Scalar::Util qw(blessed);
 
 use Tree::Simple;
 use Array::Iterator;
@@ -31,7 +33,7 @@ sub _init {
     if ($input) {
         # we accept a Tree::Simple object
         # and expect then it to be deparsed
-        if (ref($input) && UNIVERSAL::isa($input, "Tree::Simple")) {
+        if (blessed($input) && $input->isa("Tree::Simple")) {
             $self->{iterator} = undef;
             $self->{tree} = $input;
         }
@@ -70,7 +72,7 @@ sub prepareInput {
 		if (ref($input) eq "ARRAY") {
 			return Array::Iterator->new($input);
 		}
-		elsif (UNIVERSAL::isa($input, "Array::Iterator")) {
+		elsif (blessed($input) && $input->isa("Array::Iterator")) {
 			return $input;
 		}
 		else {
@@ -402,7 +404,7 @@ sub _parse {
 		} 
 		elsif ($depth > $tree_depth) {
 			(($depth - $tree_depth) <= 1) 
-                || die "Parse Error : the difference between the depth and the tree depth is too much " . ($depth - $tree_depth);
+                || die "Parse Error : the difference between the depth ($depth) and the tree depth ($tree_depth) is too much (" . ($depth - $tree_depth) . ") at '$node'";
 			my $new_tree = $tree_type->new($node, $current_tree);
 			$current_tree = $new_tree;
 		} 
@@ -416,7 +418,6 @@ sub _parse {
 	}
 	return $self->{tree};
 }
-	
 
 1;
 __END__
@@ -720,9 +721,9 @@ I use B<Devel::Cover> to test the code coverage of my tests, below is the B<Deve
  ------------------------ ------ ------ ------ ------ ------ ------ ------
  File                       stmt branch   cond    sub    pod   time  total
  ------------------------ ------ ------ ------ ------ ------ ------ ------
- Tree/Parser.pm            100.0   85.7   91.3  100.0  100.0  100.0   95.6
+ Tree/Parser.pm            100.0   85.7   88.5  100.0  100.0  100.0   95.2
  ------------------------ ------ ------ ------ ------ ------ ------ ------
- Total                     100.0   85.7   91.3  100.0  100.0  100.0   95.6
+ Total                     100.0   85.7   88.5  100.0  100.0  100.0   95.2
  ------------------------ ------ ------ ------ ------ ------ ------ ------
 
 =head1 SEE ALSO
