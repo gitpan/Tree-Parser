@@ -4,7 +4,7 @@ package Tree::Parser;
 use strict;
 use warnings;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 use Tree::Simple;
 use Array::Iterator;
@@ -274,6 +274,7 @@ sub _deparse {
 # an iterator and a tree
 sub _parse {
 	my ($self) = @_;
+    my $tree_type = ref($self->{tree});
     my ($i, $current_tree) = ($self->{iterator}, $self->{tree});
 	while ($i->hasNext()) {
         my ($depth, $node) = $self->{parse_filter}->($i);
@@ -287,25 +288,25 @@ sub _parse {
 		# and node is fine as long as it is defined	
 		(defined($node)) || die "Parse Error : node is not defined";	
 		if ($current_tree->isRoot()) {
-			my $new_tree = Tree::Simple->new($node, $current_tree);
+			my $new_tree = $tree_type->new($node, $current_tree);
 			$current_tree = $new_tree;
 			next;
 		}
 		my $tree_depth = $current_tree->getDepth();		
 		if ($depth == $tree_depth) {	
-			my $new_tree = Tree::Simple->new($node);
+			my $new_tree = $tree_type->new($node);
 			$current_tree->addSibling($new_tree);
 			$current_tree = $new_tree;
 		} 
 		elsif ($depth > $tree_depth) {
 			(($depth - $tree_depth) <= 1) 
                 || die "Parse Error : the difference between the depth and the tree depth is too much " . ($depth - $tree_depth);
-			my $new_tree = Tree::Simple->new($node, $current_tree);
+			my $new_tree = $tree_type->new($node, $current_tree);
 			$current_tree = $new_tree;
 		} 
 		elsif ($depth < $tree_depth) {
 			$current_tree = $current_tree->getParent() while ($depth < $current_tree->getDepth());
-			my $new_tree = Tree::Simple->new($node);
+			my $new_tree = $tree_type->new($node);
 			$current_tree->addSibling($new_tree);
 			$current_tree = $new_tree;	
 		}		
@@ -551,7 +552,7 @@ This method too is pretty automatic, it verifies that it has all its needs, thro
 
 =item B<_init ($tree | $input)>
 
-This will initialize the slots of the object. If given a C<$tree> object, it will store it. If given some other kind of input, it will process this through the C<prepareInput> method.
+This will initialize the slots of the object. If given a C<$tree> object, it will store it. This is currently the prefered way in which to use subclasses of B<Tree::Simple> to build your tree with, as this object will be used to build any other trees (see L<TO DO> for more information). If given some other kind of input, it will process this through the C<prepareInput> method.
 
 =item B<_parse>
 
@@ -579,6 +580,9 @@ I would like to enhance this built in filter to handle multi-level level-identif
   1.c Third Grandchild
   2 Second Child
 
+=item Make Tree::Simple subclasses more easy to handle
+
+Currently in order to have Tree::Parser use a subclass of Tree::Simple to build the heirarchy with, you must pass a tree into the constructor, and then set the input manually. This could be handled better I think, but right now I am not 100% how best to go about it.
 
 =back
 

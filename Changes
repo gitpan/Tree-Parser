@@ -1,5 +1,10 @@
 Revision history for Perl extension Tree::Parser.
 
+0.06 Tues May 18 2004
+    - some interal tweaks to facilitate using Tree::Simple
+      subclasses more easily, and added some documentation
+      to that point.
+
 0.05 Tues May 18th 2004
     - Forgot to update the dependecies (Array::Iterator
       and Tree::Simple) to their latest versions, which 
