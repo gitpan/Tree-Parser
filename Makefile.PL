@@ -6,6 +6,8 @@ WriteMakefile(
     'VERSION_FROM'	=> 'lib/Tree/Parser.pm', # finds $VERSION
     'PREREQ_PM'		=> {
             "Test::More" => 0.47,
-            "Test::Exception" => 0.15
+            "Test::Exception" => 0.15,
+            "Array::Iterator" => 0.03,
+            "Tree::Simple" => 1.02
     }, # e.g., Module::Name => 1.1
 );

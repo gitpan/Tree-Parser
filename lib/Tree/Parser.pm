@@ -4,7 +4,7 @@ package Tree::Parser;
 use strict;
 use warnings;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use Tree::Simple;
 use Array::Iterator;
@@ -362,7 +362,7 @@ The file is opened, its contents slurped into an array, which is then used to co
 
 =item * I<a string>
 
-The string is expected to have embedded newlines, and in fact B<must> have at least, more than one as a single node tree does not make much sense.
+The string is expected to have embedded newlines, and in fact B<must> have at least one.
 
 =back
 
@@ -465,7 +465,7 @@ This is where all the deparsing work is done. As with the C<_parse> method, if y
 
 =head1 BUGS
 
-None that I am aware of. Of course, if you find a bug, let me know, and I will be sure to fix it. This module, in an earlier/simpler form, has been and is being used in production for approx. 1 year now without incident. This version has been improved and the test suite added.
+None that I am aware of. Of course, if you find a bug, let me know, and I will be sure to fix it. This module, in an earlier form, has been and is being used in production for approx. 1 year now without incident. This version has been improved and the test suite added.
 
 =head1 CODE COVERAGE
 
@@ -511,7 +511,7 @@ There are also a number of specific parsers out here, such as B<HTML::Parser> an
 
 =head1 DEPENDENCIES
 
-This module uses two other module which I have written, you will need to install these both. 
+This module uses two other modules I have written: 
 
 =over 5
 

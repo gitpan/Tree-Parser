@@ -1,5 +1,9 @@
 Revision history for Perl extension Tree::Parser.
 
+0.03 Thurs May 6 2004
+    - Forgot to add the dependencies (Array::Iterator and
+      Tree::Simple) to the Makefile.PL, no other updates
+
 0.02 Wed May 5 2004
     - Added some default filters for parsing tab indented
       and space indented files. Also added some tests for 
