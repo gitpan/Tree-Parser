@@ -4,7 +4,7 @@ package Tree::Parser;
 use strict;
 use warnings;
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 use Scalar::Util qw(blessed);
 
@@ -269,7 +269,8 @@ sub prepareInput {
                 $output .= " (";                
             }
             elsif ($prev_depth > $current_depth) {
-                $output .= ") ";                
+                my $delta = $prev_depth - $current_depth;
+                $output .= ")" x $delta . " ";
             }
             $prev_depth = $current_depth;
         }
@@ -745,9 +746,9 @@ I use B<Devel::Cover> to test the code coverage of my tests, below is the B<Deve
  ---------------------------- ------ ------ ------ ------ ------ ------ ------
  File                           stmt branch   cond    sub    pod   time  total
  ---------------------------- ------ ------ ------ ------ ------ ------ ------
- Tree/Parser.pm                100.0   86.2   81.2  100.0  100.0  100.0   94.2
+ Tree/Parser.pm                100.0   87.9   81.2  100.0  100.0  100.0   94.6
  ---------------------------- ------ ------ ------ ------ ------ ------ ------
- Total                         100.0   86.2   81.2  100.0  100.0  100.0   94.2
+ Total                         100.0   87.9   81.2  100.0  100.0  100.0   94.6
  ---------------------------- ------ ------ ------ ------ ------ ------ ------
 
 =head1 SEE ALSO
@@ -785,6 +786,14 @@ This module uses two other modules I have written:
 =item B<Tree::Simple>
 
 =item B<Array::Iterator>
+
+=back
+
+=head1 ACKNOWLEDGEMENTS
+
+=over 4
+
+=item Thanks to Chad Ullman for reporting RT Bug #12244 and providing code and test case for it.
 
 =back
 

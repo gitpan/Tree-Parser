@@ -1,5 +1,9 @@
 Revision history for Perl extension Tree::Parser.
 
+0.10 Mon Apr 11, 2005
+    - fixed RT Bug# 12244 thanks to Chad Ullman for
+      both the code and test case
+
 0.09 Mon Jan 10, 2004
     - added the option of returning a Tree::Simple
       object, instead of just the node value from a
